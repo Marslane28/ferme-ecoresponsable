@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion de la Ferme</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #84fab0, #8fd3f4);
+            color: #333;
+            transition: background 0.5s;
+            text-align: center;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 20px;
+            padding: 0;
+        }
+        nav ul li a {
+            text-decoration: none;
+            font-weight: bold;
+            color: #333;
+            padding: 10px 15px;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+        nav ul li a:hover {
+            background: #269d38;
+            color: white;
+            border-radius: 5px;
+            transform: scale(1.1);
+        }
+        .content {
+            max-width: 900px;
+            margin: 120px auto 50px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s forwards;
+        }
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .hidden { display: none; }
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2fad0d;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        button {
+            background: linear-gradient(45deg, #386932a2, #4b9d26);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: linear-gradient(45deg, #347242, #abc2ae);
+            transform: scale(1.05);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-top: 80px;
+        }
+        .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 colonnes */
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.dashboard-item {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    text-align: center;
+}
+
+.dashboard-item h3 {
+    margin-bottom: 10px;
+    font-size: 18px;
+    color: #333;
+}
+
+canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+    </style>
+</head>
+<body>
+
+    <nav>
+        <ul>
+            <li><a onclick="showPage('dashboard')">Tableau de Bord</a></li>
+            <li><a onclick="showPage('stocks')">Gestion des Stocks</a></li>
+            <li><a onclick="showPage('ventes')">Gestion des Ventes</a></li>
+            <li><a onclick="showPage('woofers')">Gestion des Woofers</a></li>
+            <li><a onclick="showPage('ateliers')">Gestion des Ateliers</a></li>
+        </ul>
+    </nav>
+    
+    <div class="notification" id="notification">Nouvelle mise à jour !</div>
+    
+    <main>
+        <div id="dashboard" class="content">
+            <h2>Tableau de Bord</h2>
+            <div class="dashboard-grid">
+                <div class="dashboard-item">
+                    <h3>Ventes</h3>
+                    <canvas id="salesChart"></canvas>
+                </div>
+        
+                <div class="dashboard-item">
+                    <h3>Produits Finis</h3>
+                    <canvas id="productsChart"></canvas>
+                </div>
+        
+                <div class="dashboard-item">
+                    <h3>Woofers en activité</h3>
+                    <canvas id="woofersChart"></canvas>
+                </div>
+        
+                <div class="dashboard-item">
+                    <h3>Ateliers à venir</h3>
+                    <canvas id="ateliersChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        
+        <div id="stocks" class="content hidden">
+            <h2>Gestion des Stocks</h2>
+            <input type="text" placeholder="Rechercher..." class="search">
+            <table>
+                <tr><th>ID</th><th>Nom</th><th>Catégorie</th><th>Date</th><th>Quantité</th><th>Prix</th><th>Montant total</th></tr>
+            </table>
+            <form onsubmit="return addRow('stocks');">
+                <label>Nom :</label>
+                <input type="text" id="stockNom" required>
+                <label>Catégorie :</label>
+                <input type="text" id="stockCategorie" required>
+                <label>Date :</label>
+                <input type="date" id="stockDate" required>
+                <label>Quantité :</label>
+                <input type="number" id="stockQuantite" required>
+                <label>Prix :</label>
+                <input type="number" id="stockPrix" required>
+                <button type="submit">Ajouter une ligne</button>
+            </form>
+        </div>
+        
+        
+        <div id="ventes" class="content hidden">
+            <h2>Gestion des Ventes</h2>
+            <table>
+                <tr><th>ID</th><th>Produit</th><th>Quantité</th><th>Prix</th><th>Total</th></tr>
+            </table>
+            <form onsubmit="return addRow('ventes');">
+                <label>Produit :</label>
+                <input type="text" id="venteProduit" required>
+                <label>Quantité :</label>
+                <input type="number" id="venteQuantite" required>
+                <label>Prix :</label>
+                <input type="number" id="ventePrix" required>
+                <button type="submit">Ajouter une ligne</button>
+            </form>
+        </div>
+        
+        
+        <div id="woofers" class="content hidden">
+            <h2>Gestion des Woofers</h2>
+            <table>
+                <tr><th>ID</th><th>Nom</th><th>Email</th><th>Date Début</th><th>Date Fin</th></tr>
+            </table>
+            <form onsubmit="return addRow('woofers');">
+                <label>Nom :</label>
+                <input type="text" id="wooferNom" required>
+                <label>Email :</label>
+                <input type="email" id="wooferEmail" required>
+                <label>Date Début :</label>
+                <input type="date" id="wooferDateDebut" required>
+                <label>Date Fin :</label>
+                <input type="date" id="wooferDateFin" required>
+                <button type="submit">Ajouter une ligne</button>
+            </form>
+        </div>
+        
+        
+        <div id="ateliers" class="content hidden">
+            <h2>Gestion des Ateliers</h2>
+            <table>
+                <tr><th>ID</th><th>Nom</th><th>Date</th><th>Animateur</th></tr>
+            </table>
+            <form onsubmit="return addRow('ateliers');">
+                <label>Nom Atelier :</label>
+                <input type="text" id="atelierNom" required>
+                <label>Date :</label>
+                <input type="date" id="atelierDate" required>
+                <label>Animateur :</label>
+                <input type="text" id="atelierAnimateur" required>
+                <button type="submit">Ajouter une ligne</button>
+            </form>
+        </div>
+        
+        
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialisation des graphiques lorsqu'on est sur la page "Tableau de Bord"
+            const ctx1 = document.getElementById('salesChart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai'],
+                    datasets: [{
+                        label: 'Ventes',
+                        data: [12, 19, 3, 5, 2],
+                        borderColor: 'red',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Mois' } },
+                        y: { title: { display: true, text: 'Nombre de ventes' } }
+                    }
+                }
+            });
+    
+            // Graphique des produits finis (Bar chart)
+            const ctx2 = document.getElementById('productsChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Produit A', 'Produit B', 'Produit C', 'Produit D', 'Produit E'],
+                    datasets: [{
+                        label: 'Produits finis',
+                        data: [20, 15, 30, 10, 25],
+                        backgroundColor: 'blue',
+                        borderColor: 'blue',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Produits' } },
+                        y: { title: { display: true, text: 'Quantité' } }
+                    }
+                }
+            });
+    
+            // Graphique des woofers en activité (Pie chart)
+            const ctx3 = document.getElementById('woofersChart').getContext('2d');
+            new Chart(ctx3, {
+                type: 'pie',
+                data: {
+                    labels: ['Woofers Actifs', 'Woofers Inactifs'],
+                    datasets: [{
+                        data: [15, 5],
+                        backgroundColor: ['green', 'red']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+    
+            // Graphique des ateliers à venir (Doughnut chart)
+            const ctx4 = document.getElementById('ateliersChart').getContext('2d');
+            new Chart(ctx4, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Atelier 1', 'Atelier 2', 'Atelier 3'],
+                    datasets: [{
+                        data: [40, 35, 25],
+                        backgroundColor: ['orange', 'blue', 'purple']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        });
+    
+        // Fonction pour afficher les pages
+        function showPage(pageId) {
+            document.querySelectorAll('.content').forEach(page => page.classList.add('hidden'));
+            document.getElementById(pageId).classList.remove('hidden');
+            
+            // Initialiser les graphiques uniquement lorsque la page "dashboard" est visible
+            if (pageId === 'dashboard') {
+                initializeCharts();
+            }
+        }
+    
+        // Fonction pour initialiser les graphiques
+        function initializeCharts() {
+            // Redémarrer les graphiques si nécessaire
+            // On peut ajouter du code supplémentaire ici pour redémarrer les graphiques si besoin
+        }
+    </script>
+    
+</body>
+</html>
