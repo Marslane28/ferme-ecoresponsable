@@ -179,7 +179,9 @@ canvas {
             <h2>Gestion des Stocks</h2>
             <input type="text" placeholder="Rechercher..." class="search">
             <table>
-                <tr><th>ID</th><th>Nom</th><th>Catégorie</th><th>Date</th><th>Quantité</th><th>Prix</th><th>Montant total</th></tr>
+                <tr><thead><th>ID</th><th>Nom</th><th>Catégorie</th><th>Date</th><th>Quantité</th><th>Prix</th><th>Montant total</th></tr></thead>
+                <tbody>
+                </tbody>
             </table>
             <form onsubmit="return addRow('stocks');">
                 <label>Nom :</label>
@@ -200,7 +202,9 @@ canvas {
         <div id="ventes" class="content hidden">
             <h2>Gestion des Ventes</h2>
             <table>
-                <tr><th>ID</th><th>Produit</th><th>Quantité</th><th>Prix</th><th>Total</th></tr>
+                <thead><tr><th>ID</th><th>Produit</th><th>Quantité</th><th>Prix</th><th>Total</th></tr></thead>
+                <tbody>
+                </tbody>
             </table>
             <form onsubmit="return addRow('ventes');">
                 <label>Produit :</label>
@@ -217,7 +221,17 @@ canvas {
         <div id="woofers" class="content hidden">
             <h2>Gestion des Woofers</h2>
             <table>
-                <tr><th>ID</th><th>Nom</th><th>Email</th><th>Date Début</th><th>Date Fin</th></tr>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nom</th>
+                        <th>Email</th>
+                        <th>Date Début</th>
+                        <th>Date Fin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
             </table>
             <form onsubmit="return addRow('woofers');">
                 <label>Nom :</label>
@@ -233,10 +247,14 @@ canvas {
         </div>
         
         
+        
         <div id="ateliers" class="content hidden">
             <h2>Gestion des Ateliers</h2>
             <table>
-                <tr><th>ID</th><th>Nom</th><th>Date</th><th>Animateur</th></tr>
+                <thead><tr><th>ID</th><th>Nom</th><th>Date</th><th>Animateur</th></tr>
+                    <tbody>
+                    </tbody>
+                </thead>
             </table>
             <form onsubmit="return addRow('ateliers');">
                 <label>Nom Atelier :</label>
@@ -253,8 +271,96 @@ canvas {
     </main>
 
     <script>
+         function addRow(page) {
+        let row;
+
+        if (page === 'woofers') {
+            const tableBody = document.querySelector('#woofers table');
+            const id = Date.now(); 
+            const nom = document.getElementById('wooferNom').value;
+            const email = document.getElementById('wooferEmail').value;
+            const dateDebut = document.getElementById('wooferDateDebut').value;
+            const dateFin = document.getElementById('wooferDateFin').value;
+
+            row = tableBody.insertRow();
+            row.insertCell(0).textContent = id;
+            row.insertCell(1).textContent = nom;
+            row.insertCell(2).textContent = email;
+            row.insertCell(3).textContent = dateDebut;
+            row.insertCell(4).textContent = dateFin;
+
+            document.getElementById('wooferNom').value = '';
+            document.getElementById('wooferEmail').value = '';
+            document.getElementById('wooferDateDebut').value = '';
+            document.getElementById('wooferDateFin').value = '';
+        }
+        else if (page === 'stocks') {
+    const tableBody = document.querySelector('#stocks table tbody');
+    const id = Date.now();
+    const nom = document.getElementById('stockNom').value;
+    const categorie = document.getElementById('stockCategorie').value;
+    const date = document.getElementById('stockDate').value;
+    const quantite = document.getElementById('stockQuantite').value;
+    const prix = parseFloat(document.getElementById('stockPrix').value).toFixed(2);
+    const total = (quantite * prix).toFixed(2);
+
+    row = tableBody.insertRow();
+    row.insertCell(0).textContent = id;
+    row.insertCell(1).textContent = nom;
+    row.insertCell(2).textContent = categorie;
+    row.insertCell(3).textContent = date;
+    row.insertCell(4).textContent = quantite;
+    row.insertCell(5).textContent = prix;
+    row.insertCell(6).textContent = total;
+
+    document.getElementById('stockNom').value = '';
+    document.getElementById('stockCategorie').value = '';
+    document.getElementById('stockDate').value = '';
+    document.getElementById('stockQuantite').value = '';
+    document.getElementById('stockPrix').value = '';
+}
+
+else if (page === 'ventes') {
+    const tableBody = document.querySelector('#ventes table tbody');
+    const id = Date.now();
+    const produit = document.getElementById('venteProduit').value;
+    const quantite = document.getElementById('venteQuantite').value;
+    const prix = parseFloat(document.getElementById('ventePrix').value).toFixed(2);
+    const total = (quantite * prix).toFixed(2);
+
+    row = tableBody.insertRow();
+    row.insertCell(0).textContent = id;
+    row.insertCell(1).textContent = produit;
+    row.insertCell(2).textContent = quantite;
+    row.insertCell(3).textContent = prix;
+    row.insertCell(4).textContent = total;
+
+    document.getElementById('venteProduit').value = '';
+    document.getElementById('venteQuantite').value = '';
+    document.getElementById('ventePrix').value = '';
+}
+
+        else if (page === 'ateliers') {
+            const tableBody = document.querySelector('#ateliers table');
+            const id = Date.now(); // Génère un ID unique
+            const nomAtelier = document.getElementById('atelierNom').value;
+            const date = document.getElementById('atelierDate').value;
+            const animateur = document.getElementById('atelierAnimateur').value;
+
+            row = tableBody.insertRow();
+            row.insertCell(0).textContent = id;
+            row.insertCell(1).textContent = nomAtelier;
+            row.insertCell(2).textContent = date;
+            row.insertCell(3).textContent = animateur;
+
+            document.getElementById('atelierNom').value = '';
+            document.getElementById('atelierDate').value = '';
+            document.getElementById('atelierAnimateur').value = '';
+        }
+
+        return false;
+    }
         document.addEventListener('DOMContentLoaded', function () {
-            // Initialisation des graphiques lorsqu'on est sur la page "Tableau de Bord"
             const ctx1 = document.getElementById('salesChart').getContext('2d');
             new Chart(ctx1, {
                 type: 'line',
@@ -276,7 +382,6 @@ canvas {
                 }
             });
     
-            // Graphique des produits finis (Bar chart)
             const ctx2 = document.getElementById('productsChart').getContext('2d');
             new Chart(ctx2, {
                 type: 'bar',
@@ -299,7 +404,6 @@ canvas {
                 }
             });
     
-            // Graphique des woofers en activité (Pie chart)
             const ctx3 = document.getElementById('woofersChart').getContext('2d');
             new Chart(ctx3, {
                 type: 'pie',
@@ -316,7 +420,6 @@ canvas {
                 }
             });
     
-            // Graphique des ateliers à venir (Doughnut chart)
             const ctx4 = document.getElementById('ateliersChart').getContext('2d');
             new Chart(ctx4, {
                 type: 'doughnut',
@@ -334,21 +437,16 @@ canvas {
             });
         });
     
-        // Fonction pour afficher les pages
         function showPage(pageId) {
             document.querySelectorAll('.content').forEach(page => page.classList.add('hidden'));
             document.getElementById(pageId).classList.remove('hidden');
             
-            // Initialiser les graphiques uniquement lorsque la page "dashboard" est visible
             if (pageId === 'dashboard') {
                 initializeCharts();
             }
         }
     
-        // Fonction pour initialiser les graphiques
         function initializeCharts() {
-            // Redémarrer les graphiques si nécessaire
-            // On peut ajouter du code supplémentaire ici pour redémarrer les graphiques si besoin
         }
     </script>
     
