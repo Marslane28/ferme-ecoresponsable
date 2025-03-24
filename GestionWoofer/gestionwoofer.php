@@ -1,68 +1,76 @@
 <?php
-function connect(){
-    $db_host = 'localhost';
-    $db_user = 'root';
-    $db_password = 'root';
-    $db_db='CsiProjet'; 
+session_start();
+require_once '../config.php';
 
-    $conn = new mysqli($db_host, $db_user, $db_password, $db_db);
-
-	if ($conn->connect_error) {
-		echo 'Errno: '.$conn->connect_errno;
-		echo '<br>';
-		echo 'Error: '.$conn->connect_error;
-		exit();
-	}
-
-	return $conn;
+// Fonction pour rediriger avec un message
+function redirectWithMessage($type, $message) {
+    $_SESSION['message'] = [
+        'type' => $type,
+        'text' => $message
+    ];
+    header('Location: ../index.php#woofers');
+    exit();
 }
-$conn = connect();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $data = json_decode(file_get_contents("php://input"), true);
+    try {
+        // Validation des données
+        $required_fields = ['nom', 'prenom', 'email', 'telephone', 'dateDebut', 'mission'];
+        foreach ($required_fields as $field) {
+            if (empty($_POST[$field])) {
+                throw new Exception("Le champ $field est requis.");
+            }
+        }
 
-    if ($data["action"] === "ajouter") {
-        $stmt1 = $conn->prepare("INSERT INTO Personne (id_personne, nom, prenom, email, telephone, mot_de_passe, role) VALUES (?, ?, ?, ?, ?, '', 'woofer')");
-        $stmt1->bind_param("issss", $data["id"], $data["nom"], $data["prenom"], $data["email"], $data["telephone"]);
-        $stmt1->execute();
+        // Validation de l'email
+        if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
+            throw new Exception("L'adresse email n'est pas valide.");
+        }
 
-        $stmt2 = $conn->prepare("INSERT INTO Woofer (idWoofer, dateArrivee, dateFin, typeDeMission, statut) VALUES (?, ?, ?, ?, ?)");
-        $stmt2->bind_param("issss", $data["id"], $data["dateDebut"], $data["dateFin"], $data["mission"], $data["statut"]);
-        $stmt2->execute();
+        // Validation des dates
+        $dateDebut = new DateTime($_POST['dateDebut']);
+        $dateFin = !empty($_POST['dateFin']) ? new DateTime($_POST['dateFin']) : null;
+        
+        if ($dateFin && $dateFin < $dateDebut) {
+            throw new Exception("La date de fin ne peut pas être antérieure à la date de début.");
+        }
 
-        echo json_encode(["status" => "ajouté"]);
-        exit;
-    }
+        // Échappement des données
+        $nom = escape($conn, $_POST['nom']);
+        $prenom = escape($conn, $_POST['prenom']);
+        $email = escape($conn, $_POST['email']);
+        $telephone = escape($conn, $_POST['telephone']);
+        $dateDebutStr = $dateDebut->format('Y-m-d');
+        $dateFinStr = $dateFin ? $dateFin->format('Y-m-d') : null;
+        $mission = escape($conn, $_POST['mission']);
+        $statut = 'Actif';
 
-    if ($data["action"] === "modifier") {
-        $stmt1 = $conn->prepare("UPDATE Personne SET nom=?, prenom=?, email=?, telephone=? WHERE id_personne=?");
-        $stmt1->bind_param("ssssi", $data["nom"], $data["prenom"], $data["email"], $data["telephone"], $data["id"]);
-        $stmt1->execute();
+        // Début de la transaction
+        $conn->begin_transaction();
 
-        $stmt2 = $conn->prepare("UPDATE Woofer SET dateArrivee=?, dateFin=?, typeDeMission=?, statut=? WHERE idWoofer=?");
-        $stmt2->bind_param("ssssi", $data["dateDebut"], $data["dateFin"], $data["mission"], $data["statut"], $data["id"]);
-        $stmt2->execute();
+        // Insertion dans la table Personne
+        $stmt = $conn->prepare("INSERT INTO Personne (nom, prenom, email, telephone) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $nom, $prenom, $email, $telephone);
+        $stmt->execute();
+        $idPersonne = $conn->insert_id;
 
-        echo json_encode(["status" => "modifié"]);
-        exit;
-    }
+        // Insertion dans la table Woofer
+        $stmt = $conn->prepare("INSERT INTO Woofer (idWoofer, dateArrivee, dateFin, typeDeMission, statut) VALUES (?, ?, ?, ?, 'Actif')");
+        $stmt->bind_param("isss", $idPersonne, $dateDebutStr, $dateFinStr, $mission);
+        $stmt->execute();
 
-    if ($data["action"] === "supprimer") {
-        $stmt2 = $conn->prepare("DELETE FROM Woofer WHERE idWoofer=?");
-        $stmt2->bind_param("i", $data["id"]);
-        $stmt2->execute();
+        // Validation de la transaction
+        $conn->commit();
+        redirectWithMessage('success', 'Le Woofer a été ajouté avec succès !');
 
-        $stmt1 = $conn->prepare("DELETE FROM Personne WHERE id_personne=?");
-        $stmt1->bind_param("i", $data["id"]);
-        $stmt1->execute();
-
-        echo json_encode(["status" => "supprimé"]);
-        exit;
+    } catch (Exception $e) {
+        // Annulation de la transaction en cas d'erreur
+        if ($conn->connect_errno === 0) {
+            $conn->rollback();
+        }
+        redirectWithMessage('error', 'Erreur : ' . $e->getMessage());
     }
 }
 
-
 $conn->close();
-
-
 ?>

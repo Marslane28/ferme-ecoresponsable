@@ -1,77 +1,82 @@
 <?php
+session_start();
+require_once '../config.php';
 
-function connect(){
-    $db_host = 'localhost';
-    $db_user = 'root';
-    $db_password = 'root';
-    $db_db=''; // Need to be modified to match the db
-
-    $conn = new mysqli($db_host, $db_user, $db_password, $db_db);
-
-	if ($conn->connect_error) {
-		echo 'Errno: '.$conn->connect_errno;
-		echo '<br>';
-		echo 'Error: '.$conn->connect_error;
-		exit();
-	}
-
-	return $conn;
+// Fonction pour rediriger avec un message
+function redirectWithMessage($type, $message) {
+    $_SESSION['message'] = [
+        'type' => $type,
+        'text' => $message
+    ];
+    header('Location: ../index.php#stocks');
+    exit();
 }
 
-
-$conn= connect();
-
 //récup les données
-if ($_SERVER["REQUEST_METHOD"] === "GET" && $_GET["action"] === "liste") {
+if ($_SERVER["REQUEST_METHOD"] === "GET" && isset($_GET["action"]) && $_GET["action"] === "liste") {
     $stmt = $conn->query("SELECT * FROM Produit ORDER BY nom");
     echo json_encode($stmt->fetch_all(MYSQLI_ASSOC));
     exit;
 }
 
-//Changement de données par POST
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $data = json_decode(file_get_contents("php://input"), true);
-
-    if ($data["action"] === "enregistrer") {
-        if (!empty($data["id_produit"])) {
-            $stmt = $conn->prepare("UPDATE Produit SET nom=?, date_peremption=?, categorie=?, quantite_stock=?, unite=?, prix_unitaire=?, etat=? WHERE id_produit=?");
-            $stmt->bind_param("sssisssi",
-                $data["nom"],
-                $data["date_peremption"],
-                $data["categorie"],
-                $data["quantite_stock"],
-                $data["unite"],
-                $data["prix_unitaire"],
-                $data["etat"],
-                $data["id_produit"]
-            );
-            $stmt->execute();
-        } else {
-            $stmt = $conn->prepare("INSERT INTO Produit (nom, date_peremption, categorie, quantite_stock, unite, prix_unitaire, etat) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssisss",
-                $data["nom"],
-                $data["date_peremption"],
-                $data["categorie"],
-                $data["quantite_stock"],
-                $data["unite"],
-                $data["prix_unitaire"],
-                $data["etat"]
-            );
-            $stmt->execute();
+    try {
+        // Validation des données
+        $required_fields = ['nom', 'categorie', 'date_peremption', 'quantite', 'unite', 'prix'];
+        foreach ($required_fields as $field) {
+            if (empty($_POST[$field])) {
+                throw new Exception("Le champ $field est requis.");
+            }
         }
-        echo json_encode(["status" => "ok"]);
-        exit;
-    }
 
-    if ($data["action"] === "supprimer") {
-        $stmt = $conn->prepare("DELETE FROM Produit WHERE id_produit = ?");
-        $stmt->bind_param("i", $data["id_produit"]);
+        // Validation des valeurs numériques
+        if (!is_numeric($_POST['quantite']) || $_POST['quantite'] < 0) {
+            throw new Exception("La quantité doit être un nombre positif.");
+        }
+        if (!is_numeric($_POST['prix']) || $_POST['prix'] < 0) {
+            throw new Exception("Le prix doit être un nombre positif.");
+        }
+
+        // Validation de la date
+        if (!validateDate($_POST['date_peremption'])) {
+            throw new Exception("La date de péremption n'est pas valide.");
+        }
+
+        // Échappement des données
+        $nom = escape($conn, $_POST['nom']);
+        $categorie = escape($conn, $_POST['categorie']);
+        $date_peremption = $_POST['date_peremption'];
+        $quantite = (int)$_POST['quantite'];
+        $unite = escape($conn, $_POST['unite']);
+        $prix = (float)$_POST['prix'];
+        $etat = 'En_stock';
+
+        // Début de la transaction
+        $conn->begin_transaction();
+
+        // Insertion dans la table Produit
+        $stmt = $conn->prepare("INSERT INTO Produit (nom, date_peremption, categorie, quantite_stock, unite, prix_unitaire, etat) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssisss", $nom, $date_peremption, $categorie, $quantite, $unite, $prix, $etat);
         $stmt->execute();
-        echo json_encode(["status" => "supprimé"]);
-        exit;
+        $id_produit = $conn->insert_id;
+
+        // Insertion dans la table Stock
+        $stmt2 = $conn->prepare("INSERT INTO Stock (quantite, idProduit) VALUES (?, ?)");
+        $stmt2->bind_param("ii", $quantite, $id_produit);
+        $stmt2->execute();
+
+        // Validation de la transaction
+        $conn->commit();
+        redirectWithMessage('success', 'Le produit a été ajouté avec succès !');
+
+    } catch (Exception $e) {
+        // Annulation de la transaction en cas d'erreur
+        if ($conn->connect_errno === 0) {
+            $conn->rollback();
+        }
+        redirectWithMessage('error', 'Erreur : ' . $e->getMessage());
     }
 }
 
 $conn->close();
-
 ?>

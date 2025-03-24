@@ -1,24 +1,18 @@
 <?php
-function connect(){
-    $db_host = 'localhost';
-    $db_user = 'root';
-    $db_password = 'root';
-    $db_db='CsiProjet'; 
+session_start();
+require_once '../config.php';
 
-    $conn = new mysqli($db_host, $db_user, $db_password, $db_db);
-
-	if ($conn->connect_error) {
-		echo 'Errno: '.$conn->connect_errno;
-		echo '<br>';
-		echo 'Error: '.$conn->connect_error;
+// Fonction pour rediriger avec un message
+function redirectWithMessage($type, $message) {
+    $_SESSION['message'] = [
+        'type' => $type,
+        'text' => $message
+    ];
+    header('Location: ../index.php#ateliers');
 		exit();
 	}
 
-	return $conn;
-}
-
-$conn=connect();
-
+// Gestion des requêtes GET
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
     if (isset($_GET["action"])) {
         if ($_GET["action"] === "ateliers") {
@@ -31,37 +25,67 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
             echo json_encode($res->fetch_all(MYSQLI_ASSOC));
             exit;
         }
+        if ($_GET["action"] === "inscriptions") {
+            $id = $_GET["id"];
+            $sql = "SELECT * FROM Inscription WHERE idAtelier = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            echo json_encode($result->fetch_all(MYSQLI_ASSOC));
+            exit;
+        }
     }
 }
 
+// Gestion des requêtes POST
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $data = json_decode(file_get_contents("php://input"), true);
+    try {
+        // Validation des données
+        $required_fields = ['nom', 'description', 'date', 'duree', 'places'];
+        foreach ($required_fields as $field) {
+            if (empty($_POST[$field])) {
+                throw new Exception("Le champ $field est requis.");
+            }
+        }
 
-    if ($data["action"] === "ajouter") {
-        $stmt = $conn->prepare("INSERT INTO Atelier (id, nom, categorie, date, idWoofer, nombrePlaces, statut) VALUES (?, ?, ?, ?, ?, ?, 'Planifié')");
-        $stmt->bind_param("isssii", $data["id"], $data["nom"], $data["categorie"], $data["date"], $data["idWoofer"], $data["places"]);
-        $stmt->execute();
-        echo json_encode(["status" => "ajouté"]);
-        exit;
-    }
+        // Validation de la date
+        $date = new DateTime($_POST['date']);
+        if ($date < new DateTime()) {
+            throw new Exception("La date de l'atelier doit être future.");
+        }
 
-    if ($data["action"] === "modifier") {
-        $stmt = $conn->prepare("UPDATE Atelier SET nom=?, categorie=?, date=?, idWoofer=?, nombrePlaces=? WHERE id=?");
-        $stmt->bind_param("sssiii", $data["nom"], $data["categorie"], $data["date"], $data["idWoofer"], $data["places"], $data["id"]);
-        $stmt->execute();
-        echo json_encode(["status" => "modifié"]);
-        exit;
-    }
+        // Validation du nombre de places
+        if (!is_numeric($_POST['places']) || $_POST['places'] <= 0) {
+            throw new Exception("Le nombre de places doit être un nombre positif.");
+        }
 
-    if ($data["action"] === "supprimer") {
-        $stmt = $conn->prepare("DELETE FROM Atelier WHERE id=?");
-        $stmt->bind_param("i", $data["id"]);
+        // Validation de la durée
+        if (!is_numeric($_POST['duree']) || $_POST['duree'] <= 0) {
+            throw new Exception("La durée doit être un nombre positif.");
+        }
+
+        // Début de la transaction
+        $conn->begin_transaction();
+
+        // Insertion dans la table Atelier
+        $stmt = $conn->prepare("INSERT INTO Atelier (nom, description, date, duree, places_disponibles) VALUES (?, ?, ?, ?, ?)");
+        $dateStr = $date->format('Y-m-d H:i:s');
+        $stmt->bind_param("sssis", $_POST['nom'], $_POST['description'], $dateStr, $_POST['duree'], $_POST['places']);
         $stmt->execute();
-        echo json_encode(["status" => "supprimé"]);
-        exit;
+
+        // Validation de la transaction
+        $conn->commit();
+        redirectWithMessage('success', 'L\'atelier a été créé avec succès !');
+
+    } catch (Exception $e) {
+        // Annulation de la transaction en cas d'erreur
+        if ($conn->connect_errno === 0) {
+            $conn->rollback();
+        }
+        redirectWithMessage('error', 'Erreur : ' . $e->getMessage());
     }
 }
-
 
 $conn->close();
 ?>
